@@ -7,6 +7,7 @@ export interface AlchemistLogoConfig {
     outerCircleDuration?: number;
     thinningDuration?: number;
     eraseDuration?: number;
+    outerCircleEraseDuration?: number;
 }
 
 export class AlchemistLogo {
@@ -26,7 +27,8 @@ export class AlchemistLogo {
             drawDuration: config?.drawDuration ?? 2,
             outerCircleDuration: config?.outerCircleDuration ?? 1,
             thinningDuration: config?.thinningDuration ?? 3,
-            eraseDuration: config?.eraseDuration ?? 2
+            eraseDuration: config?.eraseDuration ?? 2,
+            outerCircleEraseDuration: config?.outerCircleEraseDuration ?? 1
         };
     }
     
@@ -74,7 +76,7 @@ export class AlchemistLogo {
             );
         
         // Maximum radius for outer circle
-        const customOuterRadius = outerRadius * 1.1;
+        const customOuterRadius = outerRadius * 1.05;
         
         // Initially hide outer circle
         outerCircleGraphics.clear();
@@ -251,7 +253,7 @@ export class AlchemistLogo {
         pinkOutline: Phaser.GameObjects.Graphics, pinkCenterX: number, pinkCenterY: number, pinkRadius: number, pinkSegments: CircleSegment[],
         blueOutline: Phaser.GameObjects.Graphics, blueCenterX: number, blueCenterY: number, blueRadius: number, blueSegments: CircleSegment[]
     ): void {
-        const { thinningDuration, eraseDuration } = this.config;
+        const { thinningDuration, eraseDuration, outerCircleEraseDuration } = this.config;
         
         // Thinning green circle
         this.animator.animateCircleThinning(
@@ -273,7 +275,7 @@ export class AlchemistLogo {
                     outerCircleGraphics,
                     outerCenterX, outerCenterY,
                     customOuterRadius,
-                    eraseDuration
+                    outerCircleEraseDuration
                 );
             }
         );

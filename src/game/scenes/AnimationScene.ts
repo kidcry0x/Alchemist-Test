@@ -8,12 +8,12 @@ export class AnimationScene extends Scene {
         super('AnimationScene');
     }
 
-    preload() {
+    protected preload(): void {
         // Tải plugin Rex Glow Filter để tạo hiệu ứng glow đẹp hơn
         this.load.plugin('rexglowfilter2pipelineplugin', 'https://raw.githubusercontent.com/rexrainbow/phaser3-rex-notes/master/dist/rexglowfilter2pipelineplugin.min.js', true);
     }
 
-    create() {
+    protected create(): void {
         // Background - đen hoàn toàn
         this.cameras.main.setBackgroundColor('#000000');
 
@@ -33,9 +33,9 @@ export class AnimationScene extends Scene {
         this.createOrbitEffects();
         
         // Lắng nghe sự kiện thay đổi kích thước
-        this.scale.on('resize', this.handleResize, this);
+        this.scale.on('resize', this.onHandleResize, this);
     }
-    
+
     /**
      * Tạo hiệu ứng quỹ đạo giống hình ảnh
      */
@@ -43,11 +43,6 @@ export class AnimationScene extends Scene {
         const centerX = this.cameras.main.width / 2;
         const centerY = this.cameras.main.height / 2;
         const radius = 120; // Giảm bán kính để thấy rõ hơn hiệu ứng giao nhau
-        
-        // Vị trí tâm của 3 hình tròn - điều chỉnh để tất cả đều cắt qua tâm của nhau
-        
-        // Tạo tam giác với hai hình tròn ở trên và một hình tròn ở dưới
-        // Hình xanh lá nằm trên bên trái, hình hồng nằm trên bên phải, hình xanh nước biển nằm dưới
         
         // Khoảng cách từ tâm chính
         const distanceLeftRight = radius;
@@ -64,7 +59,7 @@ export class AnimationScene extends Scene {
         
         // Hình xanh dương nằm dưới
         const blueCenterX = centerX;
-        const blueCenterY = centerY + distanceBottom - 15;
+        const blueCenterY = centerY + distanceBottom - 20;
         
         // Tạo container cho mỗi đường tròn để áp dụng hiệu ứng glow
         const pinkContainer = this.add.container(0, 0);
@@ -81,13 +76,15 @@ export class AnimationScene extends Scene {
         blueContainer.add(blueOutline);
         greenContainer.add(greenOutline);
         
-        // Vẽ chấm tròn màu trắng ở giữa
+        // Tạo đối tượng chấm tròn ở giữa (nhưng chưa vẽ ngay)
         const centerDot = this.add.graphics();
         centerDot.fillStyle(0xffffff, 1);
-        centerDot.fillCircle(centerX, centerY, 3);
+        centerDot.fillCircle(centerX, centerY - 20, 3);
         
-        // Thời gian hoàn thành hiệu ứng vẽ (giây)
-        const animDuration = 2;
+        // Thiết lập thời gian cho các animation (giây)
+        const drawAnimDuration = 2; // Thời gian vẽ các đường tròn
+        const outerCircleAnimDuration = 1; // Thời gian phóng to hình tròn ngoài
+        const eraseAnimDuration = 2; // Thời gian xóa các đường tròn
         
         // Tính toán vị trí điểm cuối của mỗi đường tròn
         const greenEndAngle = Phaser.Math.DegToRad(120);
@@ -115,22 +112,22 @@ export class AnimationScene extends Scene {
         // Bán kính tối đa cho hình tròn ngoài (có thể tùy chỉnh)
         const customOuterRadius = outerRadius * 1.1; // Có thể thay đổi hệ số này để tùy chỉnh bán kính
         
-        // Hiển thị các điểm cuối để kiểm tra
-        const endPointsGraphics = this.add.graphics();
-        endPointsGraphics.fillStyle(0xffffff, 1);
-        endPointsGraphics.fillCircle(greenEndX, greenEndY, 5);
-        endPointsGraphics.fillCircle(pinkEndX, pinkEndY, 5);
-        endPointsGraphics.fillCircle(blueEndX, blueEndY, 5);
-        
         // Ẩn hình tròn ngoài ban đầu
         outerCircleGraphics.clear();
+        
+        // Lưu trữ các segments của mỗi đường tròn để sau này có thể xóa ngược lại
+        const greenSegments: {startAngle: number, endAngle: number, lineWidth: number}[] = [];
+        const pinkSegments: {startAngle: number, endAngle: number, lineWidth: number}[] = [];
+        const blueSegments: {startAngle: number, endAngle: number, lineWidth: number}[] = [];
         
         // Tạo hiệu ứng vẽ từng phần cho đường tròn xanh lá
         this.animateCircleDrawing(
             greenOutline, greenContainer,
             greenCenterX, greenCenterY,
             radius, Phaser.Math.DegToRad(-60), Phaser.Math.DegToRad(120),
-            0x00ff00, animDuration
+            0x00ff00, drawAnimDuration,
+            0, // Không delay
+            greenSegments // Lưu lại các segments
         );
         
         // Tạo hiệu ứng vẽ từng phần cho đường tròn màu hồng
@@ -138,7 +135,9 @@ export class AnimationScene extends Scene {
             pinkOutline, pinkContainer,
             pinkCenterX, pinkCenterY,
             radius, Phaser.Math.DegToRad(60), Phaser.Math.DegToRad(-120),
-            0xff00ff, animDuration,
+            0xff00ff, drawAnimDuration,
+            0, // Không delay
+            pinkSegments // Lưu lại các segments
         );
         
         // Tạo hiệu ứng vẽ từng phần cho đường tròn màu xanh dương
@@ -146,14 +145,13 @@ export class AnimationScene extends Scene {
             blueOutline, blueContainer,
             blueCenterX, blueCenterY,
             radius, Phaser.Math.DegToRad(180), Phaser.Math.DegToRad(0),
-            0x00ffff, animDuration,
+            0x00ffff, drawAnimDuration,
+            0, // Không delay
+            blueSegments // Lưu lại các segments
         );
         
         // Tạo hiệu ứng phóng to cho hình tròn ngoài sau khi 3 đường tròn vẽ xong
-        this.time.delayedCall(animDuration * 1000, () => {
-            // Thời gian cho hiệu ứng scale
-            const outerCircleAnimDuration = 1; // 1 giây
-            
+        this.time.delayedCall(drawAnimDuration * 1000, () => {
             // Tạo hiệu ứng tween để phóng to từ 0 đến bán kính đầy đủ
             this.tweens.add({
                 targets: { progress: 0 },
@@ -174,60 +172,99 @@ export class AnimationScene extends Scene {
                 onComplete: () => {
                     // Áp dụng hiệu ứng glow cho hình tròn ngoài khi nó đã mở rộng hoàn toàn
                     this.applyGlowEffect(outerCircleContainer, 0xffffff);
+                    
+                    // Bắt đầu hiệu ứng xóa các đường tròn sau khi hình tròn ngoài hiện ra hoàn toàn
+                    this.time.delayedCall(300, () => { // Chờ một chút trước khi bắt đầu xóa
+                        // Xóa đường tròn xanh lá
+                        this.animateCircleErasing(
+                            greenOutline,
+                            greenCenterX, greenCenterY,
+                            radius, greenSegments,
+                            eraseAnimDuration
+                        );
+                        
+                        // Xóa đường tròn màu hồng
+                        this.animateCircleErasing(
+                            pinkOutline,
+                            pinkCenterX, pinkCenterY,
+                            radius, pinkSegments,
+                            eraseAnimDuration
+                        );
+                        
+                        // Xóa đường tròn màu xanh dương
+                        this.animateCircleErasing(
+                            blueOutline,
+                            blueCenterX, blueCenterY,
+                            radius, blueSegments,
+                            eraseAnimDuration
+                        );
+                        
+                    });
                 }
             });
         });
     }
     
     /**
-     * Tính tâm và bán kính của đường tròn đi qua 3 điểm
+     * Tạo hiệu ứng xóa dần các nét vẽ đường tròn (theo thứ tự ngược lại)
      */
-    private calculateCircleThroughThreePoints(x1: number, y1: number, x2: number, y2: number, x3: number, y3: number) {
-        // Sử dụng công thức từ hình học để tính
-        const temp = x2 * x2 + y2 * y2;
-        const bc = (x1 * x1 + y1 * y1 - temp) / 2;
-        const cd = (temp - x3 * x3 - y3 * y3) / 2;
-        const det = (x1 - x2) * (y2 - y3) - (x2 - x3) * (y1 - y2);
+    private animateCircleErasing(
+        graphics: Phaser.GameObjects.Graphics,
+        centerX: number, centerY: number,
+        radius: number,
+        segments: {startAngle: number, endAngle: number, lineWidth: number}[],
+        duration: number
+    ) {
+        // Sao chép mảng để không ảnh hưởng đến mảng gốc
+        const segmentsCopy = [...segments].reverse();
         
-        if (Math.abs(det) < 1e-10) {
-            console.error("Các điểm thẳng hàng, không thể tạo đường tròn!");
-            // Trong trường hợp điểm thẳng hàng, trả về tâm là trung điểm của x1, y1 và x3, y3
-            const centerX = (x1 + x3) / 2;
-            const centerY = (y1 + y3) / 2;
-            // Bán kính là khoảng cách từ tâm đến điểm xa nhất
-            const radius = Math.max(
-                Math.sqrt((x1 - centerX) * (x1 - centerX) + (y1 - centerY) * (y1 - centerY)),
-                Math.sqrt((x3 - centerX) * (x3 - centerX) + (y3 - centerY) * (y3 - centerY))
-            );
-            return { centerX, centerY, radius };
-        }
+        // Số lượng segments
+        const totalSegments = segmentsCopy.length;
         
-        const centerX = (bc * (y2 - y3) - cd * (y1 - y2)) / det;
-        const centerY = ((x1 - x2) * cd - (x2 - x3) * bc) / det;
-        const radius = Math.sqrt((centerX - x1) * (centerX - x1) + (centerY - y1) * (centerY - y1));
+        if (totalSegments === 0) return;
         
-        return { centerX, centerY, radius };
-    }
-    
-    /**
-     * Áp dụng hiệu ứng glow cho một đối tượng
-     */
-    private applyGlowEffect(container: Phaser.GameObjects.Container, color: number) {
-        try {
-            // Kiểm tra xem plugin đã tải hay chưa
-            if (this.plugins.get('rexglowfilter2pipelineplugin')) {
-                (this.plugins.get('rexglowfilter2pipelineplugin') as any).add(container, {
-                    outerStrength: 5,
-                    innerStrength: 0,
-                    glowColor: color,
-                    knockout: false,
-                    quality: 1,
-                    padding: 0
-                });
+        // Tạo hiệu ứng tween để xóa dần các segments từ cuối ngược về đầu
+        this.tweens.add({
+            targets: { progress: 0 },
+            progress: 1,
+            duration: duration * 1000,
+            ease: 'Linear',
+            onUpdate: (tween) => {
+                const progress = tween.getValue();
+                
+                // Tính số lượng segments cần giữ lại
+                const segmentsToKeep = Math.ceil(totalSegments * (1 - progress));
+                
+                // Xóa đồ họa hiện tại để vẽ lại
+                graphics.clear();
+                
+                // Vẽ lại các segments còn lại
+                for (let i = 0; i < segmentsToKeep; i++) {
+                    const segment = segmentsCopy[i];
+                    graphics.lineStyle(segment.lineWidth, 0xffffff, 1);
+                    graphics.beginPath();
+                    graphics.arc(centerX, centerY, radius, segment.startAngle, segment.endAngle, false);
+                    graphics.strokePath();
+                }
+                
+                // Nếu còn ít nhất một segment, vẽ chấm tròn ở điểm cuối của segment cuối cùng
+                if (segmentsToKeep > 0) {
+                    const lastSegment = segmentsCopy[segmentsToKeep - 1];
+                    const currentX = centerX + radius * Math.cos(lastSegment.endAngle);
+                    const currentY = centerY + radius * Math.sin(lastSegment.endAngle);
+                    
+                    // Kích thước dot giảm dần theo tiến trình
+                    const currentDotSize = Math.max(15 * (1 - progress), 5);
+                    
+                    graphics.fillStyle(0xffffff, 1);
+                    graphics.fillCircle(currentX, currentY, currentDotSize / 2);
+                }
+            },
+            onComplete: () => {
+                // Đảm bảo xóa hoàn toàn khi animation kết thúc
+                graphics.clear();
             }
-        } catch (error) {
-            console.error("Không thể áp dụng hiệu ứng glow:", error);
-        }
+        });
     }
     
     /**
@@ -239,7 +276,8 @@ export class AnimationScene extends Scene {
         centerX: number, centerY: number,
         radius: number, startAngle: number, endAngle: number,
         color: number, duration: number, 
-        startDelay: number = 0
+        startDelay: number = 0,
+        segmentsArray?: {startAngle: number, endAngle: number, lineWidth: number}[]
     ) {
         // Tính toán góc tổng
         let totalAngle = endAngle - startAngle;
@@ -260,7 +298,7 @@ export class AnimationScene extends Scene {
         const maxDotSize = 15;
         
         // Biến theo dõi các phần đã vẽ với độ rộng tương ứng
-        const segments: {startAngle: number, endAngle: number, lineWidth: number}[] = [];
+        const segments: {startAngle: number, endAngle: number, lineWidth: number}[] = segmentsArray || [];
         const segmentStep = 0.05;
         let lastDrawnAngle = startAngle;
         
@@ -314,7 +352,7 @@ export class AnimationScene extends Scene {
                 outlineGraphics.fillCircle(currentX, currentY, currentDotSize / 2);
             },
             onComplete: () => {
-
+                // Hoàn thành animation vẽ
             }
         });
     }
@@ -342,7 +380,7 @@ export class AnimationScene extends Scene {
     /**
      * Phương thức xử lý khi màn hình thay đổi kích thước
      */
-    handleResize(gameSize: Phaser.Structs.Size) {
+    protected onHandleResize(gameSize: Phaser.Structs.Size): void {
         // Cập nhật vị trí title
         if (this.titleText) {
             this.titleText.setPosition(gameSize.width / 2, 70);
@@ -351,6 +389,57 @@ export class AnimationScene extends Scene {
         // Cập nhật vị trí nút Back
         if (this.backButton) {
             this.backButton.setPosition(gameSize.width * 0.1, 70);
+        }
+    }
+
+    /**
+     * Tính tâm và bán kính của đường tròn đi qua 3 điểm
+     */
+    private calculateCircleThroughThreePoints(x1: number, y1: number, x2: number, y2: number, x3: number, y3: number) {
+        // Sử dụng công thức từ hình học để tính
+        const temp = x2 * x2 + y2 * y2;
+        const bc = (x1 * x1 + y1 * y1 - temp) / 2;
+        const cd = (temp - x3 * x3 - y3 * y3) / 2;
+        const det = (x1 - x2) * (y2 - y3) - (x2 - x3) * (y1 - y2);
+        
+        if (Math.abs(det) < 1e-10) {
+            console.error("Các điểm thẳng hàng, không thể tạo đường tròn!");
+            // Trong trường hợp điểm thẳng hàng, trả về tâm là trung điểm của x1, y1 và x3, y3
+            const centerX = (x1 + x3) / 2;
+            const centerY = (y1 + y3) / 2;
+            // Bán kính là khoảng cách từ tâm đến điểm xa nhất
+            const radius = Math.max(
+                Math.sqrt((x1 - centerX) * (x1 - centerX) + (y1 - centerY) * (y1 - centerY)),
+                Math.sqrt((x3 - centerX) * (x3 - centerX) + (y3 - centerY) * (y3 - centerY))
+            );
+            return { centerX, centerY, radius };
+        }
+        
+        const centerX = (bc * (y2 - y3) - cd * (y1 - y2)) / det;
+        const centerY = ((x1 - x2) * cd - (x2 - x3) * bc) / det;
+        const radius = Math.sqrt((centerX - x1) * (centerX - x1) + (centerY - y1) * (centerY - y1));
+        
+        return { centerX, centerY, radius };
+    }
+    
+    /**
+     * Áp dụng hiệu ứng glow cho một đối tượng
+     */
+    private applyGlowEffect(container: Phaser.GameObjects.Container, color: number) {
+        try {
+            // Kiểm tra xem plugin đã tải hay chưa
+            if (this.plugins.get('rexglowfilter2pipelineplugin')) {
+                (this.plugins.get('rexglowfilter2pipelineplugin') as any).add(container, {
+                    outerStrength: 5,
+                    innerStrength: 0,
+                    glowColor: color,
+                    knockout: false,
+                    quality: 1,
+                    padding: 0
+                });
+            }
+        } catch (error) {
+            console.error("Không thể áp dụng hiệu ứng glow:", error);
         }
     }
 } 

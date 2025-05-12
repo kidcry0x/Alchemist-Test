@@ -15,7 +15,7 @@ export class AnimationScene extends Scene {
     }
 
     protected create(): void {
-        // Background - đen hoàn toàn
+        // Background - completely black
         this.cameras.main.setBackgroundColor('#000000');
 
         // Title
@@ -26,19 +26,19 @@ export class AnimationScene extends Scene {
         }).setOrigin(0.5);
 
         // Back button
-        this.backButton = this.createButton(this.cameras.main.width * 0.1, 70, 'Back', () => {
+        this.backButton = this._createButton(this.cameras.main.width * 0.1, 70, 'Back', () => {
             this.scene.start('GridScene');
         });
 
-        // Khởi tạo và chạy hiệu ứng logo Alchemist
+        // Initialize and run Alchemist logo effect
         this.alchemistLogo = new AlchemistLogo(this);
         this.alchemistLogo.play();
         
-        // Lắng nghe sự kiện thay đổi kích thước
-        this.scale.on('resize', this.onHandleResize, this);
+        // Listen for resize events
+        this.scale.on('resize', this._onHandleResize, this);
     }
     
-    private createButton(x: number, y: number, text: string, callback: Function): GameObjects.Container {
+    private _createButton(x: number, y: number, text: string, callback: Function): GameObjects.Container {
         const container = this.add.container(x, y);
         
         // Button background
@@ -59,15 +59,15 @@ export class AnimationScene extends Scene {
     }
     
     /**
-     * Phương thức xử lý khi màn hình thay đổi kích thước
+     * Method to handle screen resize
      */
-    protected onHandleResize(gameSize: Phaser.Structs.Size): void {
-        // Cập nhật vị trí title
+    protected _onHandleResize(gameSize: Phaser.Structs.Size): void {
+        // Update title position
         if (this.titleText) {
             this.titleText.setPosition(gameSize.width / 2, 70);
         }
         
-        // Cập nhật vị trí nút Back
+        // Update back button position
         if (this.backButton) {
             this.backButton.setPosition(gameSize.width * 0.1, 70);
         }

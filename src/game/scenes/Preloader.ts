@@ -7,13 +7,13 @@ export class Preloader extends Scene
         super('Preloader');
     }
 
-    init ()
+    protected init (): void
     {
         //  We loaded this image in our Boot Scene, so we can display it here
         this.add.image(this.cameras.main.width / 2, this.cameras.main.height / 2, 'background')
             .setDisplaySize(this.cameras.main.width, this.cameras.main.height);
 
-        // Tính toán kích thước progress bar lớn hơn cho màn hình lớn
+        // Calculate larger progress bar size for bigger screens
         const barWidth = 800;
         const barHeight = 40;
 
@@ -25,7 +25,7 @@ export class Preloader extends Scene
         const bar = this.add.rectangle(this.cameras.main.width / 2 - barWidth/2 + 2, this.cameras.main.height / 2, 4, barHeight - 8, 0xffffff);
 
         //  Use the 'progress' event emitted by the LoaderPlugin to update the loading bar
-        this.load.on('progress', (progress: number) => {
+        this.load.on('progress', (progress: number): void => {
 
             //  Update the progress bar
             bar.width = 4 + ((barWidth - 8) * progress);
@@ -33,14 +33,14 @@ export class Preloader extends Scene
         });
     }
 
-    preload ()
+    protected preload (): void
     {
         //  Load the assets for the game - Replace with your own assets
         this.load.setPath('assets');
         this.load.atlas('flares', 'Effect/Flares/flares.png', 'Effect/Flares/flares.json');
     }
 
-    create ()
+    protected create (): void
     {
         //  When all the assets have loaded, it's often worth creating global objects here that the rest of the game can use.
         //  For example, you can define global animations here, so we can use them in other scenes.

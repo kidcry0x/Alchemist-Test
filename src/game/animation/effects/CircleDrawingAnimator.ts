@@ -14,7 +14,7 @@ export class CircleDrawingAnimator {
     }
     
     /**
-     * Tạo hiệu ứng vẽ đường tròn từ điểm bắt đầu đến điểm kết thúc với hiệu ứng glow
+     * Create circle drawing effect from start point to end point with glow effect
      */
     public animateCircleDrawing(
         outlineGraphics: Phaser.GameObjects.Graphics,
@@ -24,51 +24,51 @@ export class CircleDrawingAnimator {
         color: number, duration: number, 
         startDelay: number = 0,
         segmentsArray?: CircleSegment[]
-    ) {
-        // Tính toán góc tổng
+    ): void {
+        // Calculate total angle
         let totalAngle = endAngle - startAngle;
-        // Đảm bảo góc tổng đúng hướng
+        // Ensure total angle is in the right direction
         if (startAngle > endAngle) {
             totalAngle = (endAngle + 2 * Math.PI) - startAngle;
         }
         
-        // Áp dụng hiệu ứng glow cho container
-        this.applyGlowEffect(container, color);
+        // Apply glow effect to container
+        this._applyGlowEffect(container, color);
         
-        // Thiết lập độ rộng đường viền tối thiểu và tối đa
+        // Set minimum and maximum line width
         const minLineWidth = 3;
         const maxLineWidth = 10;
         
-        // Kích thước của chấm tròn ở đầu nét vẽ
+        // Size of the dot at the drawing edge
         const minDotSize = 5;
         const maxDotSize = 15;
         
-        // Biến theo dõi các phần đã vẽ với độ rộng tương ứng
+        // Variable to track drawn segments with corresponding widths
         const segments: CircleSegment[] = segmentsArray || [];
         const segmentStep = 0.05;
         let lastDrawnAngle = startAngle;
         
-        // Tạo hiệu ứng tween để vẽ đường tròn từng phần
+        // Create tween effect to draw circle segment by segment
         this.scene.tweens.add({
             targets: { progress: 0 },
             progress: 1,
-            duration: duration * 1000, // Chuyển đổi từ giây sang mili giây
-            delay: startDelay * 1000, // Chuyển đổi từ giây sang mili giây
+            duration: duration * 1000, // Convert seconds to milliseconds
+            delay: startDelay * 1000, // Convert seconds to milliseconds
             ease: 'Linear',
             onUpdate: (tween) => {
-                // Lấy giá trị tiến độ hiện tại (0-1)
+                // Get current progress value (0-1)
                 const progress = tween.getValue();
                 
-                // Tính toán góc hiện tại dựa trên tiến độ
+                // Calculate current angle based on progress
                 const currentEndAngle = startAngle + totalAngle * progress;
                 
-                // Tính toán độ rộng nét vẽ dựa trên tiến độ (tăng dần theo tiến trình)
+                // Calculate line width based on progress (increases with progress)
                 const currentLineWidth = minLineWidth + (maxLineWidth - minLineWidth) * progress;
                 
-                // Xóa đồ họa hiện tại để vẽ lại
+                // Clear current graphics to redraw
                 outlineGraphics.clear();
                 
-                // Thêm đoạn mới vào danh sách nếu đủ dài
+                // Add new segment to list if long enough
                 if (currentEndAngle - lastDrawnAngle >= segmentStep) {
                     segments.push({
                         startAngle: lastDrawnAngle,
@@ -78,37 +78,37 @@ export class CircleDrawingAnimator {
                     lastDrawnAngle = currentEndAngle;
                 }
                 
-                // Vẽ tất cả các đoạn đã hoàn thành với độ rộng tương ứng
+                // Draw all completed segments with corresponding widths
                 for (const segment of segments) {
-                    // Vẽ đường viền chính màu trắng với độ rộng tương ứng
+                    // Draw main white outline with corresponding width
                     outlineGraphics.lineStyle(segment.lineWidth, 0xffffff, 1);
                     outlineGraphics.beginPath();
                     outlineGraphics.arc(centerX, centerY, radius, segment.startAngle, segment.endAngle, false);
                     outlineGraphics.strokePath();
                 }
                 
-                // Vẽ chấm tròn ở vị trí hiện tại của nét vẽ
+                // Draw a dot at the current position of the drawing
                 const currentX = centerX + radius * Math.cos(currentEndAngle);
                 const currentY = centerY + radius * Math.sin(currentEndAngle);
                 
-                // Tính toán kích thước dot theo tiến trình
+                // Calculate dot size based on progress
                 const currentDotSize = minDotSize + (maxDotSize - minDotSize) * progress;
                 
                 outlineGraphics.fillStyle(0xffffff, 1);
                 outlineGraphics.fillCircle(currentX, currentY, currentDotSize / 2);
             },
             onComplete: () => {
-                // Hoàn thành animation vẽ
+                // Drawing animation completed
             }
         });
     }
     
     /**
-     * Áp dụng hiệu ứng glow cho một đối tượng
+     * Apply glow effect to an object
      */
-    private applyGlowEffect(container: Phaser.GameObjects.Container, color: number) {
+    private _applyGlowEffect(container: Phaser.GameObjects.Container, color: number): void {
         try {
-            // Kiểm tra xem plugin đã tải hay chưa
+            // Check if plugin is loaded
             if (this.scene.plugins.get('rexglowfilter2pipelineplugin')) {
                 (this.scene.plugins.get('rexglowfilter2pipelineplugin') as any).add(container, {
                     outerStrength: 5,
@@ -120,7 +120,7 @@ export class CircleDrawingAnimator {
                 });
             }
         } catch (error) {
-            console.error("Không thể áp dụng hiệu ứng glow:", error);
+            console.error("Cannot apply glow effect:", error);
         }
     }
     
@@ -199,7 +199,7 @@ export class CircleDrawingAnimator {
     }
     
     /**
-     * Tạo hiệu ứng xóa dần các nét vẽ đường tròn (theo thứ tự ngược lại)
+     * Create effect to gradually erase circle drawing strokes (in reverse order)
      */
     public animateCircleErasing(
         graphics: Phaser.GameObjects.Graphics,
@@ -283,7 +283,7 @@ export class CircleDrawingAnimator {
         });
     }
     /**
-     * Tạo hiệu ứng làm mờ dần vòng tròn ngoài
+     * Create effect to gradually fade out the outer circle
      */
     public fadeOutCircle(
         graphics: Phaser.GameObjects.Graphics,
@@ -291,10 +291,10 @@ export class CircleDrawingAnimator {
         radius: number,
         duration: number
     ): void {
-        // Tạo biến theo dõi độ alpha và độ rộng
+        // Create variables to track alpha and line width
         const params = { alpha: 0.5, lineWidth: 2 };
         
-        // Tạo hiệu ứng tween để giảm dần alpha và độ rộng
+        // Create tween effect to gradually decrease alpha and line width
         this.scene.tweens.add({
             targets: params,
             alpha: 0,
@@ -302,17 +302,17 @@ export class CircleDrawingAnimator {
             duration: duration * 1000,
             ease: 'Linear',
             onUpdate: () => {
-                // Xóa đồ họa hiện tại để vẽ lại
+                // Clear current graphics to redraw
                 graphics.clear();
                 
-                // Vẽ lại vòng tròn với alpha và độ rộng mới
+                // Redraw circle with new alpha and line width
                 graphics.lineStyle(params.lineWidth, 0xffffff, params.alpha);
                 graphics.beginPath();
                 graphics.arc(centerX, centerY, radius, 0, 2 * Math.PI);
                 graphics.strokePath();
             },
             onComplete: () => {
-                // Đảm bảo xóa hoàn toàn khi animation kết thúc
+                // Ensure complete clearing when animation ends
                 graphics.clear();
             }
         });

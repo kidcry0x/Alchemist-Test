@@ -14,7 +14,7 @@ export class AlchemistLogo {
     private animator: CircleDrawingAnimator;
     private config: Required<AlchemistLogoConfig>;
     
-    // Màu sắc của các đường tròn
+    // Colors for the circles
     private readonly GREEN_COLOR = 0x00ff00;
     private readonly PINK_COLOR = 0xff00ff;
     private readonly BLUE_COLOR = 0x00ffff;
@@ -31,10 +31,10 @@ export class AlchemistLogo {
     }
     
     /**
-     * Bắt đầu hiệu ứng logo Alchemist
+     * Start the Alchemist logo effect
      */
     public play(): void {
-        // Thiết lập và tính toán tọa độ
+        // Setup and calculate coordinates
         const { 
             centerX, centerY, radius,
             greenCenterX, greenCenterY,
@@ -45,15 +45,15 @@ export class AlchemistLogo {
             this.scene.cameras.main.height
         );
         
-        // Tạo các graphics và containers
+        // Create graphics and containers
         const { 
             greenOutline, greenContainer,
             pinkOutline, pinkContainer, 
             blueOutline, blueContainer,
             outerCircleGraphics, outerCircleContainer
-        } = this.createGraphicsAndContainers();
+        } = this._createGraphicsAndContainers();
         
-        // Tính toán các góc và điểm kết thúc
+        // Calculate angles and end points
         const { 
             greenEndX, greenEndY, greenEndAngle,
             pinkEndX, pinkEndY, pinkEndAngle,
@@ -65,7 +65,7 @@ export class AlchemistLogo {
             radius
         );
         
-        // Tính toán tâm và bán kính của đường tròn đi qua 3 điểm cuối
+        // Calculate center and radius of circle passing through 3 end points
         const { centerX: outerCenterX, centerY: outerCenterY, radius: outerRadius } = 
             CirclePositionHelper.calculateCircleThroughThreePoints(
                 greenEndX, greenEndY, 
@@ -73,19 +73,19 @@ export class AlchemistLogo {
                 blueEndX, blueEndY
             );
         
-        // Bán kính tối đa cho hình tròn ngoài
+        // Maximum radius for outer circle
         const customOuterRadius = outerRadius * 1.1;
         
-        // Ẩn hình tròn ngoài ban đầu
+        // Initially hide outer circle
         outerCircleGraphics.clear();
         
-        // Lưu trữ các segments của mỗi đường tròn để sau này có thể xóa ngược lại
+        // Store segments of each circle for later erasing in reverse
         const greenSegments: CircleSegment[] = [];
         const pinkSegments: CircleSegment[] = [];
         const blueSegments: CircleSegment[] = [];
         
-        // Tạo các hiệu ứng vẽ đường tròn
-        this.createDrawingEffects(
+        // Create circle drawing effects
+        this._createDrawingEffects(
             greenOutline, greenContainer, greenCenterX, greenCenterY, radius, 
             Phaser.Math.DegToRad(-60), greenEndAngle, this.GREEN_COLOR, greenSegments,
             pinkOutline, pinkContainer, pinkCenterX, pinkCenterY, radius,
@@ -94,8 +94,8 @@ export class AlchemistLogo {
             Phaser.Math.DegToRad(180), blueEndAngle, this.BLUE_COLOR, blueSegments
         );
         
-        // Tạo hiệu ứng phóng to cho hình tròn ngoài sau khi 3 đường tròn vẽ xong
-        this.createOuterCircleEffect(
+        // Create zoom effect for outer circle after 3 circles are drawn
+        this._createOuterCircleEffect(
             outerCircleGraphics, outerCircleContainer, 
             outerCenterX, outerCenterY, customOuterRadius,
             greenOutline, greenCenterX, greenCenterY, radius, greenSegments,
@@ -105,25 +105,25 @@ export class AlchemistLogo {
     }
     
     /**
-     * Tạo các đối tượng đồ họa và containers
+     * Create graphics and containers
      */
-    private createGraphicsAndContainers() {
-        // Tạo container cho mỗi đường tròn để áp dụng hiệu ứng glow
+    private _createGraphicsAndContainers() {
+        // Create container for each circle to apply glow effect
         const pinkContainer = this.scene.add.container(0, 0);
         const blueContainer = this.scene.add.container(0, 0);
         const greenContainer = this.scene.add.container(0, 0);
         
-        // Tạo đối tượng graphics cho các đường tròn
+        // Create graphics objects for circles
         const pinkOutline = this.scene.add.graphics();
         const blueOutline = this.scene.add.graphics();
         const greenOutline = this.scene.add.graphics();
         
-        // Thêm graphics vào container tương ứng
+        // Add graphics to corresponding containers
         pinkContainer.add(pinkOutline);
         blueContainer.add(blueOutline);
         greenContainer.add(greenOutline);
         
-        // Tạo đối tượng chấm tròn ở giữa
+        // Create center dot graphics
         const centerDot = this.scene.add.graphics();
         centerDot.fillStyle(0xffffff, 1);
         centerDot.fillCircle(
@@ -132,7 +132,7 @@ export class AlchemistLogo {
             3
         );
         
-        // Tạo container và graphics cho hình tròn bên ngoài
+        // Create container and graphics for outer circle
         const outerCircleContainer = this.scene.add.container(0, 0);
         const outerCircleGraphics = this.scene.add.graphics();
         outerCircleContainer.add(outerCircleGraphics);
@@ -147,9 +147,9 @@ export class AlchemistLogo {
     }
     
     /**
-     * Tạo các hiệu ứng vẽ đường tròn
+     * Create circle drawing effects
      */
-    private createDrawingEffects(
+    private _createDrawingEffects(
         greenOutline: Phaser.GameObjects.Graphics, greenContainer: Phaser.GameObjects.Container,
         greenCenterX: number, greenCenterY: number, radius: number, 
         greenStartAngle: number, greenEndAngle: number, greenColor: number, greenSegments: CircleSegment[],
@@ -164,41 +164,41 @@ export class AlchemistLogo {
     ) {
         const drawDuration = this.config.drawDuration;
         
-        // Tạo hiệu ứng vẽ từng phần cho đường tròn xanh lá
+        // Create drawing effect for green circle
         this.animator.animateCircleDrawing(
             greenOutline, greenContainer,
             greenCenterX, greenCenterY,
             radius, greenStartAngle, greenEndAngle,
             greenColor, drawDuration,
-            0, // Không delay
-            greenSegments // Lưu lại các segments
+            0, // No delay
+            greenSegments // Store segments
         );
         
-        // Tạo hiệu ứng vẽ từng phần cho đường tròn màu hồng
+        // Create drawing effect for pink circle
         this.animator.animateCircleDrawing(
             pinkOutline, pinkContainer,
             pinkCenterX, pinkCenterY,
             pinkRadius, pinkStartAngle, pinkEndAngle,
             pinkColor, drawDuration,
-            0, // Không delay
-            pinkSegments // Lưu lại các segments
+            0, // No delay
+            pinkSegments // Store segments
         );
         
-        // Tạo hiệu ứng vẽ từng phần cho đường tròn màu xanh dương
+        // Create drawing effect for blue circle
         this.animator.animateCircleDrawing(
             blueOutline, blueContainer,
             blueCenterX, blueCenterY,
             blueRadius, blueStartAngle, blueEndAngle,
             blueColor, drawDuration,
-            0, // Không delay
-            blueSegments // Lưu lại các segments
+            0, // No delay
+            blueSegments // Store segments
         );
     }
     
     /**
-     * Tạo hiệu ứng cho vòng tròn bên ngoài và các hiệu ứng mỏng dần và xóa
+     * Create zoom effect for outer circle and thinning and erasing effects
      */
-    private createOuterCircleEffect(
+    private _createOuterCircleEffect(
         outerCircleGraphics: Phaser.GameObjects.Graphics, outerCircleContainer: Phaser.GameObjects.Container,
         outerCenterX: number, outerCenterY: number, customOuterRadius: number,
         greenOutline: Phaser.GameObjects.Graphics, greenCenterX: number, greenCenterY: number, greenRadius: number, greenSegments: CircleSegment[],
@@ -208,7 +208,7 @@ export class AlchemistLogo {
         const { drawDuration, outerCircleDuration, thinningDuration, eraseDuration } = this.config;
         
         this.scene.time.delayedCall(drawDuration * 1000, () => {
-            // Tạo hiệu ứng tween để phóng to từ 0 đến bán kính đầy đủ
+            // Create tween effect to zoom from 0 to full radius
             this.scene.tweens.add({
                 targets: { progress: 0 },
                 progress: 1,
@@ -218,7 +218,7 @@ export class AlchemistLogo {
                     const progress = tween.getValue();
                     const currentRadius = customOuterRadius * progress;
                     
-                    // Xóa và vẽ lại đường tròn ngoài với bán kính hiện tại
+                    // Clear and redraw outer circle with current radius
                     outerCircleGraphics.clear();
                     outerCircleGraphics.lineStyle(3, 0xffffff, 0.5);
                     outerCircleGraphics.beginPath();
@@ -231,9 +231,9 @@ export class AlchemistLogo {
             });
         });
 
-        // Bắt đầu hiệu ứng làm mỏng các đường tròn sau khi hình tròn ngoài hiện ra hoàn toàn
+        // Start thinning and erasing effects after outer circle is fully drawn
         this.scene.time.delayedCall(drawDuration * 1000, () => {
-            this.applyThinningAndErasingEffects(
+            this._applyThinningAndErasingEffects(
                 outerCircleGraphics, outerCenterX, outerCenterY, customOuterRadius,
                 greenOutline, greenCenterX, greenCenterY, greenRadius, greenSegments,
                 pinkOutline, pinkCenterX, pinkCenterY, pinkRadius, pinkSegments,
@@ -243,24 +243,24 @@ export class AlchemistLogo {
     }
     
     /**
-     * Áp dụng hiệu ứng làm mỏng và xóa dần các đường tròn
+     * Apply thinning and erasing effects
      */
-    private applyThinningAndErasingEffects(
+    private _applyThinningAndErasingEffects(
         outerCircleGraphics: Phaser.GameObjects.Graphics, outerCenterX: number, outerCenterY: number, customOuterRadius: number,
         greenOutline: Phaser.GameObjects.Graphics, greenCenterX: number, greenCenterY: number, greenRadius: number, greenSegments: CircleSegment[],
         pinkOutline: Phaser.GameObjects.Graphics, pinkCenterX: number, pinkCenterY: number, pinkRadius: number, pinkSegments: CircleSegment[],
         blueOutline: Phaser.GameObjects.Graphics, blueCenterX: number, blueCenterY: number, blueRadius: number, blueSegments: CircleSegment[]
-    ) {
+    ): void {
         const { thinningDuration, eraseDuration } = this.config;
         
-        // Làm mỏng đường tròn xanh lá
+        // Thinning green circle
         this.animator.animateCircleThinning(
             greenOutline,
             greenCenterX, greenCenterY,
             greenRadius, greenSegments,
             thinningDuration,
             () => {
-                // Sau khi làm mỏng xong thì xóa
+                // After thinning is done, erase
                 this.animator.animateCircleErasing(
                     greenOutline,
                     greenCenterX, greenCenterY,
@@ -268,7 +268,7 @@ export class AlchemistLogo {
                     eraseDuration
                 );
                 
-                // Làm mờ dần vòng tròn bên ngoài cùng lúc xóa các vòng tròn con
+                // Fade out outer circle while erasing circles
                 this.animator.fadeOutCircle(
                     outerCircleGraphics,
                     outerCenterX, outerCenterY,
@@ -278,14 +278,14 @@ export class AlchemistLogo {
             }
         );
         
-        // Làm mỏng đường tròn màu hồng
+        // Thinning pink circle
         this.animator.animateCircleThinning(
             pinkOutline,
             pinkCenterX, pinkCenterY,
             pinkRadius, pinkSegments,
             thinningDuration,
             () => {
-                // Sau khi làm mỏng xong thì xóa
+                // After thinning is done, erase
                 this.animator.animateCircleErasing(
                     pinkOutline,
                     pinkCenterX, pinkCenterY,
@@ -295,14 +295,14 @@ export class AlchemistLogo {
             }
         );
         
-        // Làm mỏng đường tròn màu xanh dương
+        // Thinning blue circle
         this.animator.animateCircleThinning(
             blueOutline,
             blueCenterX, blueCenterY,
             blueRadius, blueSegments,
             thinningDuration,
             () => {
-                // Sau khi làm mỏng xong thì xóa
+                // After thinning is done, erase
                 this.animator.animateCircleErasing(
                     blueOutline,
                     blueCenterX, blueCenterY,

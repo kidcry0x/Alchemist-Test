@@ -1,6 +1,6 @@
 import StartGame from './game/main';
 
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', (): void => {
 
     StartGame('game-container');
 

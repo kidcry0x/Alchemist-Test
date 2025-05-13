@@ -23,6 +23,13 @@ export class GridScene extends Scene {
     private isDragging: boolean = false;
     private gridContentBounds: {width: number, height: number} = {width: 0, height: 0};
     private scrollAreaHeight: number = 0;
+    
+    // Scrollbar elements
+    private scrollbar: Phaser.GameObjects.Rectangle;
+    private scrollThumb: Phaser.GameObjects.Rectangle;
+    private isScrollbarDragging: boolean = false;
+    private readonly SCROLLBAR_WIDTH: number = 12;
+    private readonly SCROLLBAR_PADDING: number = 4;
 
     constructor() {
         super('GridScene');
@@ -171,10 +178,100 @@ export class GridScene extends Scene {
         // Apply mask to container
         this.gridContainer.setMask(this.gridMask);
         
+        // Create scrollbar
+        this._createScrollbar(totalGridWidth, availableHeight);
+        
         // Draw grid boundaries
         this._drawGridBoundaries();
     }
     
+    /**
+     * Create scrollbar
+     */
+    private _createScrollbar(containerWidth: number, availableHeight: number): void {
+        // Only create scrollbar if content is taller than visible area
+        if (this.gridContentBounds.height <= this.scrollAreaHeight) {
+            return;
+        }
+        
+        // Scrollbar background
+        this.scrollbar = this.add.rectangle(
+            this.GRID_START_X + containerWidth + this.SCROLLBAR_PADDING + (this.SCROLLBAR_WIDTH / 2),
+            this.GRID_START_Y + availableHeight / 2,
+            this.SCROLLBAR_WIDTH,
+            availableHeight
+        );
+        this.scrollbar.setFillStyle(0x333333, 0.6);
+        this.scrollbar.setStrokeStyle(0, 0x000000);
+        
+        // Calculate thumb height - proportional to visible content
+        const thumbHeightRatio = this.scrollAreaHeight / this.gridContentBounds.height;
+        const thumbHeight = Math.max(30, availableHeight * thumbHeightRatio); // Minimum thumb height
+        
+        // Scrollbar thumb
+        this.scrollThumb = this.add.rectangle(
+            this.GRID_START_X + containerWidth + this.SCROLLBAR_PADDING + (this.SCROLLBAR_WIDTH / 2),
+            this.GRID_START_Y, // Will be updated in updateScrollThumbPosition
+            this.SCROLLBAR_WIDTH,
+            thumbHeight
+        );
+        this.scrollThumb.setFillStyle(0xaaaaaa, 1);
+        this.scrollThumb.setStrokeStyle(0, 0x000000);
+        this.scrollThumb.setInteractive({ useHandCursor: true })
+            .on('pointerdown', this._onScrollThumbDown, this)
+            .on('pointerover', () => this.scrollThumb.setFillStyle(0xcccccc, 1))
+            .on('pointerout', () => this.scrollThumb.setFillStyle(0xaaaaaa, 1));
+        
+        // Scrollbar background events
+        this.scrollbar.setInteractive({ useHandCursor: true })
+            .on('pointerdown', this._onScrollbarBackgroundDown, this);
+        
+        // Update thumb position
+        this._updateScrollThumbPosition();
+    }
+    
+    /**
+     * Handle scroll thumb drag start
+     */
+    private _onScrollThumbDown(pointer: Phaser.Input.Pointer): void {
+        this.isScrollbarDragging = true;
+        this.dragStartY = pointer.y;
+    }
+    
+    /**
+     * Handle scrollbar background click
+     */
+    private _onScrollbarBackgroundDown(pointer: Phaser.Input.Pointer): void {
+        // Get the position of the click relative to the scrollbar
+        const relativePosition = (pointer.y - this.GRID_START_Y) / this.scrollAreaHeight;
+        
+        // Set container position proportionally
+        const targetPosition = -relativePosition * (this.gridContentBounds.height - this.scrollAreaHeight);
+        this.gridContainer.y = targetPosition;
+        
+        // Update thumb position
+        this._updateScrollThumbPosition();
+    }
+    
+    /**
+     * Update scroll thumb position based on container position
+     */
+    private _updateScrollThumbPosition(): void {
+        if (!this.scrollThumb || !this.gridContainer) return;
+        
+        // Calculate relative scroll position (0 to 1)
+        const scrollRatio = this.gridContentBounds.height <= this.scrollAreaHeight 
+            ? 0 
+            : -this.gridContainer.y / (this.gridContentBounds.height - this.scrollAreaHeight);
+        
+        // Calculate available area for thumb to move
+        const availableHeight = this.scrollAreaHeight - this.scrollThumb.height;
+        
+        // Update thumb position
+        const newY = this.GRID_START_Y + (scrollRatio * availableHeight) + (this.scrollThumb.height / 2);
+        this.scrollThumb.y = newY;
+    }
+
     /**
      * Setup input events for scrolling
      */
@@ -187,6 +284,35 @@ export class GridScene extends Scene {
         });
         
         this.input.on('pointermove', (pointer: Phaser.Input.Pointer) => {
+            // Handle scrollbar thumb dragging
+            if (this.isScrollbarDragging && this.scrollThumb) {
+                const deltaY = pointer.y - this.dragStartY;
+                this.dragStartY = pointer.y;
+                
+                // Calculate available area for thumb to move
+                const availableHeight = this.scrollAreaHeight - this.scrollThumb.height;
+                
+                // Update thumb position with constraints
+                const newY = Phaser.Math.Clamp(
+                    this.scrollThumb.y + deltaY,
+                    this.GRID_START_Y + this.scrollThumb.height / 2,
+                    this.GRID_START_Y + availableHeight + this.scrollThumb.height / 2
+                );
+                this.scrollThumb.y = newY;
+                
+                // Calculate relative position (0 to 1)
+                const relativePosition = (this.scrollThumb.y - this.GRID_START_Y - this.scrollThumb.height / 2) / availableHeight;
+                
+                // Update container position based on thumb
+                if (this.gridContentBounds.height > this.scrollAreaHeight) {
+                    const newContainerY = -relativePosition * (this.gridContentBounds.height - this.scrollAreaHeight);
+                    this.gridContainer.y = newContainerY;
+                }
+                
+                return;
+            }
+            
+            // Handle grid content dragging
             if (this.isDragging) {
                 const deltaY = pointer.y - this.dragStartY;
                 this.dragStartY = pointer.y;
@@ -203,12 +329,16 @@ export class GridScene extends Scene {
                     newY = Phaser.Math.Clamp(newY, lowerBound, upperBound);
                     
                     this.gridContainer.y = newY;
+                    
+                    // Update scroll thumb position
+                    this._updateScrollThumbPosition();
                 }
             }
         });
         
         this.input.on('pointerup', () => {
             this.isDragging = false;
+            this.isScrollbarDragging = false;
         });
         
         // Add mouse wheel support
@@ -226,6 +356,9 @@ export class GridScene extends Scene {
                 newY = Phaser.Math.Clamp(newY, lowerBound, upperBound);
                 
                 this.gridContainer.y = newY;
+                
+                // Update scroll thumb position
+                this._updateScrollThumbPosition();
             }
         });
     }
@@ -335,6 +468,15 @@ export class GridScene extends Scene {
             this.gridMask.destroy();
         }
         
+        // Destroy old scrollbar elements
+        if (this.scrollbar) {
+            this.scrollbar.destroy();
+        }
+        
+        if (this.scrollThumb) {
+            this.scrollThumb.destroy();
+        }
+        
         // Clear old boundary visuals from container
         if (this.gridContainer) {
             this.gridContainer.each((child: Phaser.GameObjects.GameObject) => {
@@ -373,6 +515,9 @@ export class GridScene extends Scene {
         } else if (this.gridContainer.y < this.scrollAreaHeight - this.gridContentBounds.height) {
             this.gridContainer.y = this.scrollAreaHeight - this.gridContentBounds.height;
         }
+        
+        // Create scrollbar
+        this._createScrollbar(this.gridContentBounds.width, availableHeight);
         
         // Redraw grid boundaries
         this._drawGridBoundaries();
@@ -520,6 +665,15 @@ export class GridScene extends Scene {
         // Destroy mask if it exists
         if (this.gridMask) {
             this.gridMask.destroy();
+        }
+        
+        // Destroy scrollbar elements
+        if (this.scrollbar) {
+            this.scrollbar.destroy();
+        }
+        
+        if (this.scrollThumb) {
+            this.scrollThumb.destroy();
         }
     }
 } 

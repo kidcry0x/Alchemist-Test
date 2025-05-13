@@ -1,4 +1,4 @@
-import { Scene, GameObjects } from 'phaser';
+import { Scene, GameObjects, Types } from 'phaser';
 
 export class GridScene extends Scene {
     private gridItems: GameObjects.Container[] = [];
@@ -15,6 +15,14 @@ export class GridScene extends Scene {
     private titleText: GameObjects.Text;
     private instructionText: GameObjects.Text;
     private buttonContainers: GameObjects.Container[] = [];
+    
+    // Scroll view elements
+    private gridMask: Phaser.Display.Masks.GeometryMask;
+    private gridContainer: Phaser.GameObjects.Container;
+    private dragStartY: number = 0;
+    private isDragging: boolean = false;
+    private gridContentBounds: {width: number, height: number} = {width: 0, height: 0};
+    private scrollAreaHeight: number = 0;
 
     constructor() {
         super('GridScene');
@@ -52,6 +60,13 @@ export class GridScene extends Scene {
         const buttonsHeight = 200;
         const availableHeight = height - titleAndInstructionHeight - buttonsHeight;
         
+        // Store the grid content bounds for scrolling calculations
+        this.gridContentBounds.width = totalGridWidth;
+        this.gridContentBounds.height = totalGridHeight;
+        
+        // Store the scroll area height
+        this.scrollAreaHeight = availableHeight;
+        
         if (totalGridHeight < availableHeight) {
             this.GRID_START_Y = titleAndInstructionHeight + Math.round((availableHeight - totalGridHeight) / 2);
         } else {
@@ -62,6 +77,21 @@ export class GridScene extends Scene {
         console.log(`Grid position: X=${this.GRID_START_X}, Y=${this.GRID_START_Y}, Width=${totalGridWidth}, Screen=${width}x${height}`);
     }
 
+    /**
+     * Reset all scene data
+     */
+    private _resetScene(): void {
+        // Clear existing grid items
+        this.gridItems.forEach(item => item.destroy());
+        this.gridItems = [];
+        
+        // Clear selected items
+        this.selectedItems.clear();
+        
+        // Reset item index
+        this.nextItemIndex = 0;
+    }
+
     protected create(): void {
         // Background
         this.add.image(this.cameras.main.width / 2, this.cameras.main.height / 2, 'background')
@@ -70,11 +100,11 @@ export class GridScene extends Scene {
         // Calculate grid position
         this._calculateGridPosition(this.cameras.main.width, this.cameras.main.height);
         
-        // Draw grid boundaries for visualization
-        this._drawGridBoundaries();
+        // Create grid container and mask
+        this._createGridContainerAndMask();
 
         // Title
-        this.titleText = this.add.text(this.cameras.main.width / 2, 70, 'Interactive Grid Scene', {
+        this.titleText = this.add.text(this.cameras.main.width / 2, 70, 'Interactive Grid Scene + Mask + Scroll View', {
             fontFamily: 'Arial Black', fontSize: 40, color: '#ffffff',
             stroke: '#000000', strokeThickness: 6,
             align: 'center'
@@ -96,6 +126,120 @@ export class GridScene extends Scene {
         
         // Listen for resize events
         this.scale.on('resize', this._handleResize, this);
+        
+        // Setup input events for scrolling
+        this._setupScrollEvents();
+    }
+    
+    /**
+     * Create grid container and mask for scrollable area
+     */
+    private _createGridContainerAndMask(): void {
+        // Calculate total grid size
+        const itemsWidth = this.GRID_COLS * this.ITEM_SIZE;
+        const spacingWidth = (this.GRID_COLS - 1) * this.ITEM_SPACING;
+        const totalGridWidth = itemsWidth + spacingWidth;
+        
+        const maxRows = Math.ceil(this.MAX_ITEMS / this.GRID_COLS);
+        const itemsHeight = maxRows * this.ITEM_SIZE;
+        const spacingHeight = (maxRows - 1) * this.ITEM_SPACING;
+        const totalGridHeight = itemsHeight + spacingHeight;
+        
+        // Create a container for all grid items
+        this.gridContainer = this.add.container(0, 0);
+        
+        // Create a mask graphics object
+        const maskGraphics = this.make.graphics({});
+        
+        // Calculate mask bounds
+        const titleAndInstructionHeight = 230;
+        const buttonsHeight = 200;
+        const availableHeight = this.cameras.main.height - titleAndInstructionHeight - buttonsHeight;
+        
+        // Draw mask rect
+        maskGraphics.fillStyle(0xffffff);
+        maskGraphics.fillRect(
+            this.GRID_START_X,
+            this.GRID_START_Y,
+            totalGridWidth,
+            availableHeight
+        );
+        
+        // Create mask from graphics
+        this.gridMask = maskGraphics.createGeometryMask();
+        
+        // Apply mask to container
+        this.gridContainer.setMask(this.gridMask);
+        
+        // Draw grid boundaries
+        this._drawGridBoundaries();
+    }
+    
+    /**
+     * Setup input events for scrolling
+     */
+    private _setupScrollEvents(): void {
+        this.input.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
+            if (this._isPointerInScrollArea(pointer)) {
+                this.isDragging = true;
+                this.dragStartY = pointer.y;
+            }
+        });
+        
+        this.input.on('pointermove', (pointer: Phaser.Input.Pointer) => {
+            if (this.isDragging) {
+                const deltaY = pointer.y - this.dragStartY;
+                this.dragStartY = pointer.y;
+                
+                if (this.gridContentBounds.height > this.scrollAreaHeight) {
+                    const currentY = this.gridContainer.y;
+                    let newY = currentY + deltaY;
+                    
+                    // Calculate the lower and upper bounds for scrolling
+                    const lowerBound = this.scrollAreaHeight - this.gridContentBounds.height;
+                    const upperBound = 0;
+                    
+                    // Clamp within bounds
+                    newY = Phaser.Math.Clamp(newY, lowerBound, upperBound);
+                    
+                    this.gridContainer.y = newY;
+                }
+            }
+        });
+        
+        this.input.on('pointerup', () => {
+            this.isDragging = false;
+        });
+        
+        // Add mouse wheel support
+        this.input.on('wheel', (pointer: Phaser.Input.Pointer, gameObjects: any, deltaX: number, deltaY: number, deltaZ: number) => {
+            if (this._isPointerInScrollArea(pointer) && this.gridContentBounds.height > this.scrollAreaHeight) {
+                const scrollFactor = 15; // Adjust for scroll sensitivity
+                const currentY = this.gridContainer.y;
+                let newY = currentY - (deltaY * scrollFactor);
+                
+                // Calculate the lower and upper bounds for scrolling
+                const lowerBound = this.scrollAreaHeight - this.gridContentBounds.height;
+                const upperBound = 0;
+                
+                // Clamp within bounds
+                newY = Phaser.Math.Clamp(newY, lowerBound, upperBound);
+                
+                this.gridContainer.y = newY;
+            }
+        });
+    }
+    
+    /**
+     * Check if pointer is in scroll area
+     */
+    private _isPointerInScrollArea(pointer: Phaser.Input.Pointer): boolean {
+        return (
+            pointer.x >= this.GRID_START_X && 
+            pointer.x <= this.GRID_START_X + this.gridContentBounds.width &&
+            pointer.y >= this.GRID_START_Y && 
+            pointer.y <= this.GRID_START_Y + this.scrollAreaHeight
+        );
     }
     
     /**
@@ -120,8 +264,26 @@ export class GridScene extends Scene {
             totalGridHeight
         );
         
-        gridBounds.setStrokeStyle(2, 0xff0000);
+        gridBounds.setStrokeStyle(0, 0xff0000);
         gridBounds.setDepth(-1);
+        
+        // Add gridBounds to container
+        this.gridContainer.add(gridBounds);
+        
+        // Không hiển thị viền của scroll view (mask boundary)
+        const titleAndInstructionHeight = 230;
+        const buttonsHeight = 200;
+        const availableHeight = this.cameras.main.height - titleAndInstructionHeight - buttonsHeight;
+        
+        const maskBounds = this.add.rectangle(
+            this.GRID_START_X + totalGridWidth / 2,
+            this.GRID_START_Y + availableHeight / 2,
+            totalGridWidth,
+            availableHeight
+        );
+        
+        maskBounds.setStrokeStyle(2, 0x00ff00);
+        maskBounds.setDepth(-1);
     }
 
     /**
@@ -157,21 +319,63 @@ export class GridScene extends Scene {
         // Recalculate grid position to always be centered
         this._calculateGridPosition(gameSize.width, gameSize.height);
         
-        // Remove all old grid boundary objects
-        this.children.list.forEach(child => {
-            if (child.type === 'Rectangle') {
-                const rect = child as Phaser.GameObjects.Rectangle;
-                if (rect.strokeColor === 0xff0000) {
-                    rect.destroy();
-                }
-            }
-        });
-        
-        // Redraw grid boundaries
-        this._drawGridBoundaries();
+        // Update grid container and mask
+        this._updateGridContainerAndMask();
         
         // Update grid item positions immediately
         this._realignGrid(true);
+    }
+    
+    /**
+     * Update grid container and mask when resizing
+     */
+    private _updateGridContainerAndMask(): void {
+        // Destroy old mask
+        if (this.gridMask) {
+            this.gridMask.destroy();
+        }
+        
+        // Clear old boundary visuals from container
+        if (this.gridContainer) {
+            this.gridContainer.each((child: Phaser.GameObjects.GameObject) => {
+                if (child.type === 'Rectangle') {
+                    child.destroy();
+                }
+            });
+        }
+        
+        // Create new mask
+        const maskGraphics = this.make.graphics({});
+        
+        // Calculate mask bounds
+        const titleAndInstructionHeight = 230;
+        const buttonsHeight = 200;
+        const availableHeight = this.cameras.main.height - titleAndInstructionHeight - buttonsHeight;
+        
+        // Draw mask rect
+        maskGraphics.fillStyle(0xffffff);
+        maskGraphics.fillRect(
+            this.GRID_START_X,
+            this.GRID_START_Y,
+            this.gridContentBounds.width,
+            availableHeight
+        );
+        
+        // Create mask from graphics
+        this.gridMask = maskGraphics.createGeometryMask();
+        
+        // Apply mask to container
+        this.gridContainer.setMask(this.gridMask);
+        
+        // Reset grid container position if needed
+        if (this.gridContentBounds.height <= this.scrollAreaHeight) {
+            this.gridContainer.y = 0;
+        } else if (this.gridContainer.y < this.scrollAreaHeight - this.gridContentBounds.height) {
+            this.gridContainer.y = this.scrollAreaHeight - this.gridContentBounds.height;
+        }
+        
+        // Redraw grid boundaries
+        this._drawGridBoundaries();
     }
 
     private _createButton(x: number, y: number, text: string, callback: Function): GameObjects.Container {
@@ -224,6 +428,8 @@ export class GridScene extends Scene {
         container.setData('index', index);
         container.setData('background', bg);
         
+        // Add to container instead of directly to scene
+        this.gridContainer.add(container);
         this.gridItems.push(container);
         
         // Debug - display position of item
@@ -293,6 +499,27 @@ export class GridScene extends Scene {
     }
 
     private _goToNextScene(): void {
+        // Reset the scene before switching
+        this._resetScene();
         this.scene.start('AnimationScene');
+    }
+    
+    protected shutdown(): void {
+        // Clean up resources when scene shuts down
+        this._resetScene();
+        
+        // Clean up input events
+        this.input.off('pointerdown');
+        this.input.off('pointermove');
+        this.input.off('pointerup');
+        this.input.off('wheel');
+        
+        // Remove resize listener
+        this.scale.off('resize', this._handleResize);
+        
+        // Destroy mask if it exists
+        if (this.gridMask) {
+            this.gridMask.destroy();
+        }
     }
 } 
